@@ -119,14 +119,19 @@ public class BatchChunkExceptionTest {
             if (stepExecution.getStepName().equals("myStep")) {
                 Map<Metric.MetricType, Long> metricsMap = BatchTestHelper.getMetricsMap(stepExecution.getMetrics());
 
-                assertEquals(1L, metricsMap.get(Metric.MetricType.PROCESS_SKIP_COUNT).longValue());
-                // There are a few differences between Glassfish and Wildfly. Needs investigation.
-                //assertEquals(1L, metricsMap.get(Metric.MetricType.WRITE_SKIP_COUNT).longValue());
+                // PROCESS_SKIP_COUNT disparity from difference between Glassfish and WildFly in retry-with-rollback processing of the skipped item?
+                long processSkipCount = metricsMap.get(Metric.MetricType.PROCESS_SKIP_COUNT).longValue();
+                assertTrue("Expecting value between 1 and 2 inclusive, but found: " + processSkipCount, processSkipCount>=1 && processSkipCount <=2);
+                // Next assertion currently failing in WildFly, counting '2' skipped writes
+                assertEquals(1L, metricsMap.get(Metric.MetricType.WRITE_SKIP_COUNT).longValue());
                 assertEquals(1L, ChunkExceptionRecorder.retryReadExecutions);
             }
         }
 
         assertTrue(ChunkExceptionRecorder.chunkExceptionsCountDownLatch.await(0, TimeUnit.SECONDS));
         assertEquals(BatchStatus.COMPLETED, jobExecution.getBatchStatus());
+        String exitStatus = jobExecution.getExitStatus();
+        // Next assertion currently failing in WildFly, which includes item #8
+        assertEquals("1,2,3,4,5,7,9,10", exitStatus.substring(0, exitStatus.length()-1)); // Remove trailing comma
     }
 }
